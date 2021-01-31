@@ -1,0 +1,5 @@
+# dev stuff
+.vscode/
+
+# data
+*.csv
