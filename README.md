@@ -9,7 +9,7 @@ I wrote this because I was tired of not being able to see how much I was up/down
 
 The script aggregates your transaction history to give you a per-asset balance, then calls out to the Coinbase API to get the current spot price for each asset. Finally, it goes through each row and tells you how much you'd gain (after fees) if you sold off the whole holding.
 
-![img](docs/example.PNG)
+![img](docs/example.png)
 
 *Picked these mostly at random. I am not a financial advisor, lol*
 
