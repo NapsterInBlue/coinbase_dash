@@ -1,4 +1,5 @@
 import os
+from bisect import bisect
 
 import pandas as pd
 from coinbase.wallet.client import Client
@@ -20,9 +21,9 @@ def crunch_transaction_hist():
     )
 
     gb = df.groupby("Asset")[["net_amt", "Quantity Transacted"]].sum()
-    gb.columns = ["account_balance", "total_amount"]
+    gb.columns = ["total_amount_spent", "total_amount_held"]
 
-    gb["avg_price_per_coin"] = gb["account_balance"] / gb["total_amount"]
+    gb["avg_price_per_coin_bought"] = gb["total_amount_spent"] / gb["total_amount_held"]
 
     gb = gb.reset_index()
 
@@ -50,17 +51,62 @@ def get_prices_from_acct_bal(acct_bal: pd.DataFrame):
     return current_prices
 
 
+def get_transaction_fee(trade_val: float):
+
+    cutoffs = [10, 25, 50, 200]
+    fees = [0.99, 1.49, 1.99, 2.99]
+
+    try:
+        index = bisect(cutoffs, trade_val)
+        transaction_fee = fees[index]
+    except IndexError:
+        transaction_fee = 0.00
+
+    return transaction_fee
+
+
 def check_for_moves(acct_bal: pd.DataFrame, current_prices: pd.Series):
     """
     Checks how much profit we'd see, after fees, if we sold all of an asset,
     returns the frame, sorted by profit, descending.
     """
     merged = pd.merge(acct_bal, current_prices, left_on="Asset", right_index=True)
-    merged["sell_all_profit"] = (
-        (merged["current_price_per_coin"] * merged["total_amount"])
-        - 1.5
-        - merged["account_balance"]
-    )
+
+    # revenue
+    acct_val_per_coin = merged["current_price_per_coin"] * merged["total_amount_held"]
+
+    # costs
+    spread_fee = acct_val_per_coin * 0.005
+
+    conversion_fee = acct_val_per_coin * 0.0149
+    transaction_fee = acct_val_per_coin.map(get_transaction_fee)
+    max_c_or_t_fee = conversion_fee.combine(transaction_fee, max)
+
+    total_fees_for_coin = spread_fee + max_c_or_t_fee
+    merged["total_fees_for_coin"] = total_fees_for_coin
+
+    # profit
+    profit = acct_val_per_coin - total_fees_for_coin - merged["total_amount_spent"]
+    merged["sell_all_profit"] = profit
+
+    # top-level stats
+    current_account_value = acct_val_per_coin.sum()
+    total_spent = merged["total_amount_spent"].sum()
+    total_fees = total_fees_for_coin.sum()
+    total_profit = profit.sum()
+    roi = (total_spent + total_profit) / total_spent
+
+    for val, string in [
+        (current_account_value, "Account Value"),
+        (total_spent, "Total spent"),
+        (total_fees, "Total fees"),
+        (total_profit, "Profit if Cash Out"),
+        (roi, "ROI"),
+    ]:
+        fmtd_val = f"{val:.2f}".rjust(10)
+        print(fmtd_val, " : ", string)
+    else:
+        print()
 
     merged = merged.sort_values("sell_all_profit", ascending=False)
     return merged
