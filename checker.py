@@ -19,6 +19,9 @@ def crunch_transaction_hist():
     df["net_amt"] = df["USD Total (inclusive of fees)"] * (
         df["add_subtract"].map({"add": 1, "subtract": -1})
     )
+    df["Quantity Transacted"] = df["Quantity Transacted"] * (
+        df["add_subtract"].map({"add": 1, "subtract": -1})
+    )
 
     gb = df.groupby("Asset")[["net_amt", "Quantity Transacted"]].sum()
     gb.columns = ["total_amount_spent", "total_amount_held"]
@@ -115,5 +118,7 @@ def check_for_moves(acct_bal: pd.DataFrame, current_prices: pd.Series):
 if __name__ == "__main__":
     acct_bal = crunch_transaction_hist()
     current_prices = get_prices_from_acct_bal(acct_bal)
-    print(check_for_moves(acct_bal, current_prices))
+    df = check_for_moves(acct_bal, current_prices)
+    df.columns = ["Coin", "Spent", "Amt", "AvgBuy", "CurrPrice", "Fees", "Profit"]
+    print(df)
     input()  # stays on the screen until user hits Enter
