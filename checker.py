@@ -4,6 +4,9 @@ from bisect import bisect
 import pandas as pd
 from coinbase.wallet.client import Client
 
+pd.set_option('display.max_columns', 10)
+pd.set_option('display.float_format', '${:,.2f}'.format)
+
 
 TRANSACTION_MAP = {"Buy": "add", "Coinbase Earn": "add", "Sell": "subtract"}
 
@@ -16,7 +19,7 @@ def crunch_transaction_hist():
     df = pd.read_csv("transactions.csv", skiprows=range(7))
     df["add_subtract"] = df["Transaction Type"].map(TRANSACTION_MAP)
 
-    df["net_amt"] = df["USD Total (inclusive of fees)"] * (
+    df["net_amt"] = df["Total (inclusive of fees)"] * (
         df["add_subtract"].map({"add": 1, "subtract": -1})
     )
     df["Quantity Transacted"] = df["Quantity Transacted"] * (
